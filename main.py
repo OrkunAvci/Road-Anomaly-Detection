@@ -1,6 +1,5 @@
 import numpy
 from skimage import data, io, filters
-import skimage.color as ski_color
 import cv2 as cv
 
 #   Get image
