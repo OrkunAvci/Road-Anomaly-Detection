@@ -4,7 +4,7 @@ import pickle
 
 target_ip = "127.0.0.1"
 port = 6666
-image = cv.imread("./resources/icon.png", 0)
+image = cv.imread("./resources/dog.jpg", 0)
 print(image)
 
 img_bytes = pickle.dumps(image)
