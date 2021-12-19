@@ -2,6 +2,11 @@ import numpy
 from skimage import data, io, filters
 import cv2 as cv
 
+
+
+
+#  Dump
+"""
 #   Get image
 image = cv.imread("./resources/dog.pgm", 0)
 #image = ski_color.rgb2gray(data.rocket())
@@ -25,3 +30,4 @@ edges = numpy.array(top_arr)
 print(edges.min(), edges.max(), edges.mean())
 io.imshow(edges)
 io.show()
+"""
