@@ -22,7 +22,6 @@ with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
 				data.append(received)
 				received = conn.recv(4096)
 
-		print("Data received: " + str(len(data)))
 		data = b"".join(data)
 		img = pickle.loads(data)
 		io.imshow(img)
