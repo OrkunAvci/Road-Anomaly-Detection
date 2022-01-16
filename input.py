@@ -2,10 +2,10 @@
 import cv2 as cv
 
 dummy = {
-	"path": "./resources/",
+	"path": "./resources/Senerio_3/",
 	"file_no": 0,
 	"file_extension": ".jpg",
-	"max_frame": 4
+	"max_frame": 6
 }
 
 def get_next():
