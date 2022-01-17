@@ -2,7 +2,7 @@
 import cv2 as cv
 
 dummy = {
-	"path": "./resources/Senerio_3/",
+	"path": "./resources/Scenario_1/",
 	"file_no": 0,
 	"file_extension": ".jpg",
 	"max_frame": 6
