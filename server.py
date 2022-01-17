@@ -1,28 +1,50 @@
-import socket
-import pickle
 import process_image as pi
 import time
-import os
 import asyncio
+import logging
+import struct
+import numpy
+from skimage import io
 
-self_ip = "127.0.0.1"
+self_ip = "0.0.0.0"
 port = 6666
 
 async def handle_echo(reader, writer):
     addr = writer.get_extra_info('peername')
-    print(f"Connection from {addr!r}")
-    message = input()
-    data = message.encode()
+    print(f"Connection from {addr!r} at {time.ctime(time.time())}")
 
-    print(f"Send: {message!r}")
-    writer.write(data)
-    await writer.drain()
+    data = await reader.read(4)
+    print("First:", data)
+    first = struct.unpack("<L", data)[0]
+    print(f"Received {first} from {addr!r} at {time.time()}")
+    writer.write(b"ok")
 
-    data = await reader.read(100)
-    message = data.decode()
-    addr = writer.get_extra_info('peername')
-    print(f"Received {message!r} from {addr!r}")
+    data = await reader.read(4)
+    print("Second:", data)
+    second = struct.unpack("<L", data)[0]
+    print(f"Received {second} from {addr!r} at {time.time()}")
+    writer.write(b"ok")
 
+    shape = (first, second)
+    print(f"Received {shape} from {addr!r} at {time.time()}")
+
+    data = await reader.read(128)
+    size = struct.unpack("<L", data)[0]
+    print(f"Received {size} from {addr!r} at {time.time()}")
+    writer.write(b"ok")
+
+    img_size = size
+    read = await reader.read(size)
+    while size:
+        data += read
+        size -= len(read)
+        read = await reader.read(size)
+    print(len(data))
+    img = numpy.frombuffer(data, dtype='uint8', count = img_size)
+    img = img.reshape(shape, order="C")
+    print(img)
+    io.imshow(img)
+    io.show()
     print("Close the connection")
     writer.close()
 
@@ -35,4 +57,5 @@ async def main():
     async with server:
         await server.serve_forever()
 
-asyncio.run(main())
+logging.basicConfig(level=logging.DEBUG)
+asyncio.run(main(), debug = True)
