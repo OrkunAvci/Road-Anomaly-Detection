@@ -2,36 +2,26 @@ import socket
 import pickle
 import time
 import os
+import asyncio
 
 import input
 
 target_ip = "127.0.0.1"
 port = 6666
 
-def get_obj(conn):
-	with conn :
-		data = []
-		received = conn.recv(4096)
-		while received :
-			data.append(received)
-			received = conn.recv(4096)
-	data = b"".join(data)
-	data = pickle.loads(data)
-	return data
+async def tcp_echo_client():
+    reader, writer = await asyncio.open_connection(target_ip, port)
 
-for i in range(3):
-	s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-	s.connect((target_ip, port))
-	print("Connected.")
-	image = input.get_next()
-	img_bytes = pickle.dumps(image)
+    data = await reader.read(100)
+    print(f'Received: {data.decode()!r}')
 
-	print("ID:", i)
-	print("Size: " + str(len(bytes(len(img_bytes)))))
-	print("Sending...")
-	s.sendall(img_bytes)
-	print("Sent.")
-	print("---------------------------")
-	time.sleep(1)
-	s.close()
-	os.system("pause")
+    message = data.decode()
+    print(f'Send: {message!r}')
+    writer.write(data)
+    await writer.drain()
+
+    print('Close the connection')
+    writer.close()
+    await writer.wait_closed()
+
+asyncio.run(tcp_echo_client())

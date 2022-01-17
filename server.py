@@ -3,79 +3,36 @@ import pickle
 import process_image as pi
 import time
 import os
+import asyncio
 
 self_ip = "127.0.0.1"
 port = 6666
 
-def process(img, mult, s_x, s_y, prev):
-	part = [[cell for cell in row[s_y * mult : (s_y + 1) * mult]] for row in img[s_x * mult : (s_x + 1) * mult]]
-	out = {
-		"avg" : sum([sum(row) for row in part]) / (mult * mult),
-		"x" : s_x,
-		"y" : s_y,
-		#"out_of_bounds" : False,
-		"previous_state" : prev
-	}
-	return out
+async def handle_echo(reader, writer):
+    addr = writer.get_extra_info('peername')
+    print(f"Connection from {addr!r}")
+    message = input()
+    data = message.encode()
 
-def do_something(img, prev):
-	mult = 12
-	out = [[process(img, mult, i, j, prev) for j in range(int(img.shape[1] / mult))] for i in
-	       range(int(img.shape[0] / mult))]
-	print("Original cell number: ", sum([len(row) for row in out]), "\tAvg : %.2f"%(sum([sum([cell["avg"] for cell in row]) for row in out]) / sum([len(row) for row in out])))
-	here = []
-	for row in out :
-		for cell in row :
-			if cell["avg"] != 0.0 :
-				here.append(cell)
-	print("Non-zero cell number: ", len(here), "\tAvg : %.2f"%(sum([cell["avg"] for cell in here]) / len(here)))
-	here = [cell for cell in here if cell["avg"] > 15.0]
-	here = sorted(here, key = lambda item : item["avg"])
-	print("Relevant cell number: ", len(here), "\tAvg : %.2f"%(sum([cell["avg"] for cell in here]) / len(here)))
-	print("X Avg : %.2f"%(sum([cell["x"] for cell in here]) / len(here)))
-	print("Y Avg : %.2f"%(sum([cell["y"] for cell in here]) / len(here)))
-	return here
+    print(f"Send: {message!r}")
+    writer.write(data)
+    await writer.drain()
 
-def get_obj(conn):
-	with conn :
-		data = []
-		received = conn.recv(4096)
-		while received :
-			data.append(received)
-			received = conn.recv(4096)
-	data = b"".join(data)
-	data = pickle.loads(data)
-	return data
+    data = await reader.read(100)
+    message = data.decode()
+    addr = writer.get_extra_info('peername')
+    print(f"Received {message!r} from {addr!r}")
 
-with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-	print("Socket Ready.")
-	s.bind((self_ip,port))
-	print("Bound.")
-	print("Listening...")
-	s.listen(10)
+    print("Close the connection")
+    writer.close()
 
-	conn, addr = s.accept()
-	print("Connected by", addr)
-	background = get_obj(conn)
-	background = pi.process(background)
-	print("Background ready.")
-	print("---------------------------")
+async def main():
+    server = await asyncio.start_server(handle_echo, self_ip, port)
 
-	prev = None
-	for i in range(2):
-		print("Awaiting connection...")
-		conn, addr = s.accept()
-		print("Connected by", addr)
-		print("ID: ", i + 1)
-		start = time.time()
-		img = get_obj(conn)
-		print("Processing...")
-		img = pi.process(img)
-		img = img - background
-		prev = do_something(img, prev)
-		print("Time : %.2f"%(time.time() - start))
-		print("---------------------------")
-		conn.close()
+    addrs = ', '.join(str(sock.getsockname()) for sock in server.sockets)
+    print(f'Serving on {addrs}')
 
-print("Anomaly detected: Offroad crash!")
-os.system("pause")
+    async with server:
+        await server.serve_forever()
+
+asyncio.run(main())
