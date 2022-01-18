@@ -7,55 +7,67 @@ import numpy
 from skimage import io
 
 self_ip = "0.0.0.0"
-port = 6666
+port = 8888
 
-async def handle_echo(reader, writer):
-    addr = writer.get_extra_info('peername')
-    print(f"Connection from {addr!r} at {time.ctime(time.time())}")
+async def get_int(reader, writer) -> int:
+	data = await reader.read(4)
+	integer = struct.unpack("<L", data)[0]
+	writer.write(b"ok")
+	await writer.drain()
+	return integer
 
-    data = await reader.read(4)
-    print("First:", data)
-    first = struct.unpack("<L", data)[0]
-    print(f"Received {first} from {addr!r} at {time.time()}")
-    writer.write(b"ok")
+async def send_int(reader, writer, value: int):
+	writer.write(struct.pack("<L", value))
+	await writer.drain()
+	await reader.read(2)
 
-    data = await reader.read(4)
-    print("Second:", data)
-    second = struct.unpack("<L", data)[0]
-    print(f"Received {second} from {addr!r} at {time.time()}")
-    writer.write(b"ok")
+async def get_img(reader, writer):
+	addr = writer.get_extra_info('peername')
 
-    shape = (first, second)
-    print(f"Received {shape} from {addr!r} at {time.time()}")
+	shape = (await get_int(reader, writer), await get_int(reader, writer))
+	print(f"Constructed shape {shape} on {time.ctime(time.time())}")
 
-    data = await reader.read(128)
-    size = struct.unpack("<L", data)[0]
-    print(f"Received {size} from {addr!r} at {time.time()}")
-    writer.write(b"ok")
+	size = (shape[0] * shape[1])
+	img_size = size
+	data = bytearray()
+	read = await reader.read(size)
+	while size :
+		data += read
+		size -= len(read)
+		read = await reader.read(size)
+	writer.write(b"ok")
+	await writer.drain()
+	print(f"Done reading {len(data)} bytes.")
 
-    img_size = size
-    read = await reader.read(size)
-    while size:
-        data += read
-        size -= len(read)
-        read = await reader.read(size)
-    print(len(data))
-    img = numpy.frombuffer(data, dtype='uint8', count = img_size)
-    img = img.reshape(shape, order="C")
-    print(img)
-    io.imshow(img)
-    io.show()
-    print("Close the connection")
-    writer.close()
+	flat_img = numpy.frombuffer(data, dtype = 'uint8', count = img_size)
+	img = flat_img.reshape(shape, order = "C")
+	print(f"Built the image from {addr!r} on {time.ctime(time.time())}")
+	return img
+
+async def handle_request(reader, writer):
+	addr = writer.get_extra_info('peername')
+	print(f"Connection from {addr!r} at {time.ctime(time.time())}")
+
+	option = await get_int(reader, writer)
+	print("Option is ", option)
+	if option == 1:
+		img = await get_img(reader, writer)
+	elif option == 2:
+		print("Party!")
+	#...
+
+	print("Close the connection")
+	writer.close()
 
 async def main():
-    server = await asyncio.start_server(handle_echo, self_ip, port)
+	server = await asyncio.start_server(handle_request, self_ip, port)
 
-    addrs = ', '.join(str(sock.getsockname()) for sock in server.sockets)
-    print(f'Serving on {addrs}')
+	addrs = ', '.join(str(sock.getsockname()) for sock in server.sockets)
+	print(f'Serving on {addrs}')
 
-    async with server:
-        await server.serve_forever()
+	async with server:
+		await server.serve_forever()
 
-logging.basicConfig(level=logging.DEBUG)
-asyncio.run(main(), debug = True)
+if __name__ == "__main__":
+	logging.basicConfig(level = logging.DEBUG)
+	asyncio.run(main(), debug = True)

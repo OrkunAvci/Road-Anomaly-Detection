@@ -7,34 +7,44 @@ import numpy as np
 import input
 
 target_ip = "127.0.0.1"
-port = 6666
+port = 8888
+ID = 1
 
-async def tcp_echo_client():
-	reader, writer = await asyncio.open_connection(target_ip, port)
+async def get_int(reader, writer) -> int:
+	data = await reader.read(4)
+	integer = struct.unpack("<L", data)[0]
+	writer.write(b"ok")
+	await writer.drain()
+	return integer
 
+async def send_int(reader, writer, value: int):
+	writer.write(struct.pack("<L", value))
+	await writer.drain()
+	await reader.read(2)
+
+async def send_img(reader, writer):
 	img = input.get_next()
 	shape = img.shape
-	print(shape)
 
-	writer.write(struct.pack("<L", shape[0]))
-	await writer.drain()
-	await reader.read(2)
+	await send_int(reader, writer, shape[0])
+	await send_int(reader, writer, shape[1])
 
-	writer.write(struct.pack("<L", shape[1]))
-	await writer.drain()
-	await reader.read(2)
-
-	string_img = img.astype(np.uint8, order="C").tobytes()
-	size = struct.pack('<L', len(string_img))
-	writer.write(size)
-	await writer.drain()
-	await reader.read(2)
-
+	string_img = img.astype(np.uint8, order = "C").tobytes()
+	print(f"Sending {len(string_img)} bytes.")
 	writer.write(string_img)
 	await writer.drain()
+	await reader.read(2)
+
+async def main_handler():
+	reader, writer = await asyncio.open_connection(target_ip, port)
+
+	await send_int(1)   #   Option
+
+	await send_img(reader, writer)
 
 	print("Close the connection")
 	writer.close()
 	await writer.wait_closed()
 
-asyncio.run(tcp_echo_client())
+if __name__ == "__main__":
+	asyncio.run(main_handler())
