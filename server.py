@@ -4,7 +4,8 @@ import asyncio
 import logging
 import struct
 import numpy
-from skimage import io
+
+import state_manager as sm
 
 self_ip = "0.0.0.0"
 port = 8888
@@ -48,14 +49,25 @@ async def handle_request(reader, writer):
 	addr = writer.get_extra_info('peername')
 	print(f"Connection from {addr!r} at {time.ctime(time.time())}")
 
-	option = await get_int(reader, writer)
-	print("Option is ", option)
-	if option == 1:
-		img = await get_img(reader, writer)
-	elif option == 2:
-		print("Party!")
-	#...
+	#   Register if new machine
+	id = addr[0]
+	if id not in sm.states.keys():
+		sm.new_state(id)
+		await send_int(reader, writer, 1)
+		sm.states[id]["background"] = await get_img(reader, writer)
+		print(f"Registered {id}.")
+		print(sm.states[id])
 
+	#   Get image and process it
+	await send_int(reader, writer, sm.states[id]["next_option"])
+	img = await get_img(reader, writer)
+	processed = pi.process(img)
+
+	#   Detect anomalies on processed image
+	sm.detect(id, processed)
+
+	#   Send close signal
+	await send_int(reader, writer, 0)
 	print("Close the connection")
 	writer.close()
 
