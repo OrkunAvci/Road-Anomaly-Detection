@@ -53,18 +53,24 @@ async def handle_request(reader, writer):
 	id = addr[0]
 	if id not in sm.states.keys():
 		sm.new_state(id)
-		await send_int(reader, writer, 1)
-		sm.states[id]["background"] = await get_img(reader, writer)
 		print(f"Registered {id}.")
-		print(sm.states[id])
+		await send_int(reader, writer, 1)
+		sm.states[id]["background"] = pi.process(await get_img(reader, writer))
 
-	#   Get image and process it
-	await send_int(reader, writer, sm.states[id]["next_option"])
-	img = await get_img(reader, writer)
-	processed = pi.process(img)
+	for i in range(5):
+		#   Get image and process it
+		await send_int(reader, writer, sm.states[id]["next_option"])
+		img = await get_img(reader, writer)
+		processed = pi.process(img)
 
-	#   Detect anomalies on processed image
-	sm.detect(id, processed)
+		#   Detect anomalies on processed image
+		sm.detect(id, processed)
+
+	print("Detected stationary object!")
+	await send_int(reader, writer, 3)
+
+	time.sleep(1)
+	await send_int(reader, writer, 2)
 
 	#   Send close signal
 	await send_int(reader, writer, 0)
@@ -81,5 +87,5 @@ async def main():
 		await server.serve_forever()
 
 if __name__ == "__main__":
-	logging.basicConfig(level = logging.DEBUG)
-	asyncio.run(main(), debug = True)
+	#logging.basicConfig(level = logging.DEBUG)
+	asyncio.run(main(), debug = False)
